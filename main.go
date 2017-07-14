@@ -64,11 +64,9 @@ func main() {
 	}
 
 	for {
-
 		event := <-windowEvents
 
 		if event.Change == "close" || event.Change == "new" || event.Change == "move" {
-
 			tree, err := ipcSocket.GetTree()
 
 			if err != nil {
@@ -78,9 +76,12 @@ func main() {
 			//workspace, err := ipcSocket.GetWorkspaces();
 			workspaces := GetWorkspaces(tree.Nodes...)
 			for _, workspace := range workspaces {
-				// give it a capacity of 4
-				newWsName := fmt.Sprintf("%d:  ", workspace.Num)
-				for _ , window := range GetWindows(workspace) {
+				newWsName := fmt.Sprintf("%d", workspace.Num)
+
+				for i , window := range GetWindows(workspace) {
+					if i == 0 {
+						newWsName += ": "
+					}
 					icon := window_icons[strings.ToLower(window.Window_Properties.Class)]
 					if icon == "" {
 						icon = "*"
@@ -88,7 +89,7 @@ func main() {
 					newWsName += icon + "    "
 
 				}
-				ipcSocket.Command(fmt.Sprintf("rename workspace \"%s\" to \"%s  \"", workspace.Name, newWsName))
+				ipcSocket.Command(fmt.Sprintf("rename workspace \"%s\" to \"%s\"", workspace.Name, newWsName))
 			}
 		}
 	}
@@ -125,7 +126,11 @@ func GetWindows(Nodes ...i3ipc.I3Node) (windows []i3ipc.I3Node) {
 }
 
 func createWindowDB(db *sql.DB) (err error) {
-	sqlStmt := "CREATE TABLE IF NOT EXISTS window_db(window_class TEXT, window_icon TEXT);" 
+	//sqlStmt := "CREATE TABLE IF NOT EXISTS window_type(window_class TEXT, window_type TEXT);"
+	//_, err = db.Exec(sqlStmt)
+	//sqlStmt = "CREATE TABLE IF NOT EXISTS type_icon(window_type TEXT, window_icon TEXT);"
+	//_, err = db.Exec(sqlStmt)
+	sqlStmt := "CREATE TABLE IF NOT EXISTS window_db(window_class TEXT, window_icon TEXT);"
 	_, err = db.Exec(sqlStmt)
 	return err
 }
