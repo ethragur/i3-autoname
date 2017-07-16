@@ -84,20 +84,22 @@ func main() {
 			//workspace, err := ipcSocket.GetWorkspaces();
 			workspaces := GetWorkspaces(tree.Nodes...)
 			for _, workspace := range workspaces {
-				newWsName := fmt.Sprintf("%d", workspace.Num)
+				go func (workspace i3ipc.I3Node) {
+					newWsName := fmt.Sprintf("%d", workspace.Num)
 
-				for i , window := range GetWindows(workspace) {
-					if i == 0 {
-						newWsName += ": "
-					}
-					icon := window_icons[strings.ToLower(window.Window_Properties.Class)]
-					if icon == "" {
-						icon = ""
-					}
-					newWsName += icon + "    "
+					for i , window := range GetWindows(workspace) {
+						if i == 0 {
+							newWsName += ": "
+						}
+						icon := window_icons[strings.ToLower(window.Window_Properties.Class)]
+						if icon == "" {
+							icon = ""
+						}
+						newWsName += icon + "    "
 
-				}
-				ipcSocket.Command(fmt.Sprintf("rename workspace \"%s\" to \"%s\"", workspace.Name, newWsName))
+					}
+					ipcSocket.Command(fmt.Sprintf("rename workspace \"%s\" to \"%s\"", workspace.Name, newWsName))
+				}(workspace)
 			}
 		}
 	}
