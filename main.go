@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"strings"
 	"github.com/ethragur/i3ipc-go"
 	"database/sql"
@@ -11,7 +12,14 @@ import (
 )
 
 func main() {
-	db, err := sql.Open("sqlite3", "./gorename.db")
+
+	confDir, err := createConfigDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error could not get User Config Dir" + err.Error())
+		return
+	}
+
+	db, err := sql.Open("sqlite3", confDir + "gorename.db")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error could not create database: " + err.Error())
 		return
@@ -84,7 +92,7 @@ func main() {
 					}
 					icon := window_icons[strings.ToLower(window.Window_Properties.Class)]
 					if icon == "" {
-						icon = "*"
+						icon = ""
 					}
 					newWsName += icon + "    "
 
@@ -160,5 +168,15 @@ func getWindowIcons(db *sql.DB) (window_infos map[string]string, err error) {
 		window_infos[strings.ToLower(winClass)] = winIcon
 	}
 	return window_infos, rows.Err()
+}
+
+func createConfigDir() (string, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	db_dir := usr.HomeDir + "/.config/i3-autorename/"
+	os.MkdirAll(db_dir, 0700)
+	return db_dir, nil
 }
 
