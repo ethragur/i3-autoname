@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"os/signal"
+	"syscall"
 	"strings"
 	"github.com/ethragur/i3ipc-go"
 	"database/sql"
@@ -57,6 +59,19 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error could not read table: " + err.Error())
 		return
 	}
+
+	// reload config on SIGUSR1
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGUSR1)
+	go func(){
+		window_icons, err = getWindowIcons(db)
+
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error could not read table: " + err.Error())
+			os.Exit(1)
+
+		}
+	}()
 
 	i3ipc.StartEventListener()
 	windowEvents, err := i3ipc.Subscribe(i3ipc.I3WindowEvent)
