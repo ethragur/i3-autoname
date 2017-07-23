@@ -36,17 +36,23 @@ func main() {
 
 	insertPtr := flag.Bool("i", false, "Insert Icon Class Into DB")
 	keyPtr	  := flag.String("class", "", "The Class of the Window")
-	iconPtr  := flag.String("icon", "", "The Icon of the Window")
+	iconPtr   := flag.String("icon", "", "The Icon of the Window")
+	typePtr   := flag.String("type", "", "Application type")
 
 	flag.Parse()
 
 	if *insertPtr {
-		if *keyPtr != "" && *iconPtr != "" {
-			err := insertIconPair(db, *keyPtr, *iconPtr)
+		if *iconPtr != "" && *typePtr != "" && *keyPtr == "" {
+			//insert Type/Icon Pair
+			err = insertTypeIconPair(db, *typePtr, *iconPtr)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "Error inserting Win/Icon pair: " + err.Error())
-			} else {
-				fmt.Println("Succesfully inserted Win/Icon pair: " + *keyPtr + " " + *iconPtr)
+				fmt.Fprintln(os.Stderr, "Error inserting Type/Icon Pair: " + err.Error())
+			}
+		} else if *keyPtr != "" && *typePtr != "" && *iconPtr == "" {
+			//insert Class/Type Pair
+			err = insertClassTypePair(db, *keyPtr, *typePtr)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "Error inserting Class/Type Pair: " + err.Error())
 			}
 		} else {
 			fmt.Fprintln(os.Stderr, "Please enter Class and Icon with -class=... & -icon=...")
@@ -99,22 +105,20 @@ func main() {
 			//workspace, err := ipcSocket.GetWorkspaces();
 			workspaces := GetWorkspaces(tree.Nodes...)
 			for _, workspace := range workspaces {
-				go func (workspace i3ipc.I3Node) {
-					newWsName := fmt.Sprintf("%d", workspace.Num)
+				newWsName := fmt.Sprintf("%d", workspace.Num)
 
-					for i , window := range GetWindows(workspace) {
-						if i == 0 {
-							newWsName += ": "
-						}
-						icon := window_icons[strings.ToLower(window.Window_Properties.Class)]
-						if icon == "" {
-							icon = ""
-						}
-						newWsName += icon + "    "
-
+				for i , window := range GetWindows(workspace) {
+					if i == 0 {
+						newWsName += ": "
 					}
-					ipcSocket.Command(fmt.Sprintf("rename workspace \"%s\" to \"%s\"", workspace.Name, newWsName))
-				}(workspace)
+					icon := window_icons[strings.ToLower(window.Window_Properties.Class)]
+					if icon == "" {
+						icon = ""
+					}
+					newWsName += icon + "    "
+
+				}
+				ipcSocket.Command(fmt.Sprintf("rename workspace \"%s\" to \"%s\"", workspace.Name, newWsName))
 			}
 		}
 	}
@@ -151,24 +155,28 @@ func GetWindows(Nodes ...i3ipc.I3Node) (windows []i3ipc.I3Node) {
 }
 
 func createWindowDB(db *sql.DB) (err error) {
-	//sqlStmt := "CREATE TABLE IF NOT EXISTS window_type(window_class TEXT, window_type TEXT);"
-	//_, err = db.Exec(sqlStmt)
-	//sqlStmt = "CREATE TABLE IF NOT EXISTS type_icon(window_type TEXT, window_icon TEXT);"
-	//_, err = db.Exec(sqlStmt)
-	sqlStmt := "CREATE TABLE IF NOT EXISTS window_db(window_class TEXT, window_icon TEXT);"
+	sqlStmt := "CREATE TABLE IF NOT EXISTS type_class(window_class TEXT, window_type TEXT);"
+	_, err = db.Exec(sqlStmt)
+	sqlStmt = "CREATE TABLE IF NOT EXISTS type_icon(window_type TEXT, window_icon TEXT);"
 	_, err = db.Exec(sqlStmt)
 	return err
 }
 
-func insertIconPair(db *sql.DB, class string, icon string) (err error) {
-	sqlStmt := fmt.Sprintf("INSERT INTO window_db(window_class, window_icon) VALUES(\"%s\", \"%s\");", class, icon)
+func insertTypeIconPair(db *sql.DB, wType string, icon string) (err error) {
+	sqlStmt := fmt.Sprintf("INSERT INTO type_icon(window_type, window_icon) VALUES(\"%s\", \"%s\");", wType, icon)
+	_, err = db.Exec(sqlStmt)
+	return err
+}
+
+func insertClassTypePair(db *sql.DB, class string, wType string) (err error) {
+	sqlStmt := fmt.Sprintf("INSERT INTO type_class(window_class, window_type) VALUES(\"%s\", \"%s\");", class, wType)
 	_, err = db.Exec(sqlStmt)
 	return err
 }
 
 func getWindowIcons(db *sql.DB) (window_infos map[string]string, err error) {
 	window_infos = make(map[string]string)
-	sqlStmt := "SELECT * FROM window_db;"
+	sqlStmt := "SELECT window_class, window_icon FROM type_class INNER JOIN type_icon ON type_class.window_type = type_icon.window_type;"
 	rows, err := db.Query(sqlStmt)
 	if err != nil {
 		return window_infos, err
