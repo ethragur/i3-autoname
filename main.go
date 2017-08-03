@@ -11,9 +11,27 @@ import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"flag"
+	"github.com/nightlyone/lockfile"
 )
 
 func main() {
+	usr, err := user.Current()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Could not get User " + err.Error())
+		return
+	}
+
+	lock, err := lockfile.New(usr.HomeDir + "/.cache/i3autoname")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Locked: " + err.Error())
+		return
+	}
+	err =  lock.TryLock()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Locked: " + err.Error())
+		return
+	}
+	defer lock.Unlock()
 
 	confDir, err := createConfigDir()
 	if err != nil {
@@ -34,6 +52,7 @@ func main() {
 		return
 	}
 
+	listPtr   := flag.Bool("l", false, "Print the DB")
 	insertPtr := flag.Bool("i", false, "Insert Icon Class Into DB")
 	keyPtr	  := flag.String("class", "", "The Class of the Window")
 	iconPtr   := flag.String("icon", "", "The Icon of the Window")
@@ -41,6 +60,13 @@ func main() {
 
 	flag.Parse()
 
+	if *listPtr {
+		err = printIconList(db)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error while Printing List: " + err.Error())
+		}
+		return
+	}
 	if *insertPtr {
 		if *iconPtr != "" && *typePtr != "" && *keyPtr == "" {
 			//insert Type/Icon Pair
@@ -203,5 +229,27 @@ func createConfigDir() (string, error) {
 	db_dir := usr.HomeDir + "/.config/i3-autorename/"
 	os.MkdirAll(db_dir, 0700)
 	return db_dir, nil
+}
+
+func printIconList(db *sql.DB) (err error) {
+	sqlStmt := "SELECT window_class, type_class.window_type, window_icon FROM type_class INNER JOIN type_icon ON type_class.window_type = type_icon.window_type;"
+	rows, err := db.Query(sqlStmt)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	fmt.Println(" Class | Type | Icon ")
+	for rows.Next() {
+		var winClass string
+		var winType  string
+		var winIcon  string
+		err = rows.Scan(&winClass, &winType, &winIcon)
+		if err != nil {
+			return err
+		}
+		fmt.Println(winClass + " | " + winType + " | " + winIcon)
+	}
+	return nil
 }
 
