@@ -106,7 +106,7 @@ func main() {
 	}()
 
 	i3ipc.StartEventListener()
-	windowEvents, err := i3ipc.Subscribe(i3ipc.I3WindowEvent)
+	windowEvents, err   := i3ipc.Subscribe(i3ipc.I3WindowEvent)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Could not subscribe to i3ipc: " + err.Error())
 		return
@@ -118,6 +118,8 @@ func main() {
 		return
 	}
 
+
+	go shutdownOnRestart()
 	for {
 		event := <-windowEvents
 
@@ -251,5 +253,23 @@ func printIconList(db *sql.DB) (err error) {
 		fmt.Println(winClass + " | " + winType + " | " + winIcon)
 	}
 	return nil
+}
+
+func shutdownOnRestart() {
+	shutdownEvents, err := i3ipc.Subscribe(i3ipc.I3ShutdownEvent)
+	
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Could not Subscribe to shutdown event: " + err.Error());
+		os.Exit(1)
+	}
+
+	for {
+
+		shutdownEvent := <-shutdownEvents
+
+		if shutdownEvent.Change == "restart" {
+			os.Exit(1)
+		}
+	}
 }
 
