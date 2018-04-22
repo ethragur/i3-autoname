@@ -21,18 +21,6 @@ func main() {
 		return
 	}
 
-	lock, err := lockfile.New(usr.HomeDir + "/.cache/i3autoname")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Locked: " + err.Error())
-		return
-	}
-	err =  lock.TryLock()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Locked: " + err.Error())
-		return
-	}
-	defer lock.Unlock()
-
 	confDir, err := createConfigDir()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error could not get User Config Dir" + err.Error())
@@ -91,6 +79,19 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error could not read table: " + err.Error())
 		return
 	}
+
+	lock, err := lockfile.New(usr.HomeDir + "/.cache/i3autoname")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Locked: " + err.Error())
+		return
+	}
+	err =  lock.TryLock()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Locked: " + err.Error())
+		return
+	}
+	defer lock.Unlock()
+
 
 	// reload config on SIGUSR1
 	c := make(chan os.Signal, 1)
@@ -267,7 +268,7 @@ func shutdownOnRestart() {
 
 		shutdownEvent := <-shutdownEvents
 
-		if shutdownEvent.Change == "restart" {
+		if shutdownEvent.Change == "restart"  || shutdownEvent.Change == "exit" {
 			os.Exit(1)
 		}
 	}
